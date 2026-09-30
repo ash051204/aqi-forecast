@@ -95,6 +95,9 @@ check("custom input loads", not at.exception, str([e.value for e in at.exception
 first = replay.iloc[0]
 check("custom input pre-filled result equals replay of the same day",
       shown_probability(at) == f"{first['prob_logreg']:.1%}", shown_probability(at))
+check("custom input shows the 'impossible day' note", "cannot happen in reality" in all_text(at))
+# This edit (AQI today alone) makes a physically impossible day. It only
+# checks that the Predict button recomputes; the value itself means nothing.
 before = shown_probability(at)
 key = next(k for k in (w.key for w in at.number_input) if k.startswith("aqi_today"))
 at.number_input(key=key).set_value(50.0)

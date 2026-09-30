@@ -30,7 +30,7 @@ MODELS = ROOT / "models"
 # line, and the three real models take the first three categorical slots.
 INK = "#0b0b0b"
 MUTED = "#8a8984"
-COLORS = {"Seasonal naive": "#2a78d6", "Holt-Winters": "#eb6834", "SARIMA": "#1baf7a", "Naive": MUTED}
+COLORS = {"Seasonal naive": "#2a78d6", "Holt-Winters": "#eb6834", "SARIMA": "#199e70", "Naive": MUTED}
 AXIS = dict(labelFontSize=12, titleFontSize=13, gridColor="#e6e6e3", domainColor="#8a8984", tickColor="#8a8984")
 
 # Smoothing window for the overview chart (a display choice, not a result).
@@ -313,6 +313,10 @@ def page_risk() -> None:
                     f, min_value=0.0, value=None if pd.isna(v) else float(v), step=1.0, format="%.2f",
                     key=f"{f}_{prefill}", help=f"Training median: {fmt(medians[f], 2)}")
             submitted = st.form_submit_button("Predict", key="predict")
+        st.info("AQI is calculated from the pollutant values, so the AQI inputs and the pollutant inputs are tied "
+                "together in real data. Changing one alone (for example AQI today without changing PM2.5 and PM10) "
+                "creates a day that cannot happen in reality, and the prediction for such a day is not meaningful. "
+                "For a realistic what-if, change the related values together.")
         # Inside a form, edits only take effect when "Predict" is pressed, so
         # the result below always matches the values last submitted (the
         # pre-filled real day until then).
