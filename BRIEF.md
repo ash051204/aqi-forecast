@@ -25,7 +25,8 @@ PHASE 1: DATA AUDIT (no changes to data)
 PHASE 2: CLEANING
 - Reindex to a continuous daily date range (confirm whether any dates were actually missing).
 - Fill short AQI gaps (3 days or fewer) with time-based interpolation. Report any longer gaps and handle them explicitly, explaining the choice.
-- For pollutant columns with heavy missingness, report the % and decide whether to impute or drop, explaining why.
+- For pollutant columns with heavy missingness, report the % and decide whether to drop, explaining why.
+- Do NOT impute any pollutant column in Phase 2. Leave their NaNs in data/processed/delhi_daily.csv. Imputation happens later inside the Phase 5 pipeline, fit on training data only, to avoid leakage across the train/test split.
 - Outliers: detect with IQR and box plots, but FLAG them, do not delete. Delhi smog spikes are real events, not errors. Explain this in the report.
 - Save data/processed/delhi_daily.csv. Stop and report.
 
