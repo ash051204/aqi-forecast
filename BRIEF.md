@@ -37,13 +37,21 @@ PHASE 3: EDA
 - Write 5 to 8 plain-language findings. Stop and report.
 
 PHASE 4: FORECASTING (time series)
-- Resample to weekly mean AQI.
-- Split BY TIME: train = 2015-2018, test = 2019. Keep 2020 aside.
+- Resample to weekly mean AQI. State which weekday weeks end on, how partial weeks at the start and end are handled, and how the occasional 53rd week affects the 52-week seasonal period.
+- Split BY TIME: train = 2015-2018, test = weeks ending in 2019. Keep 2020 aside.
 - Stationarity: ADF test, ACF and PACF plots, decide differencing.
-- Models: (a) naive baseline (next week = this week), (b) seasonal naive (same week last year), (c) Holt-Winters exponential smoothing with seasonal_periods=52, (d) SARIMA with seasonal period 52, orders chosen by a small grid search on AIC (keep the grid small; report what was searched).
-- Evaluate all four on 2019 with RMSE and MAE in one comparison table. Plot forecasts vs actuals.
+- Models: (a) naive baseline, (b) seasonal naive (same week last year), (c) Holt-Winters exponential smoothing with seasonal_periods=52, (d) SARIMA with seasonal period 52, orders chosen by a small grid search on AIC (keep the grid small; report the grid searched, the chosen orders, AIC, and the fitting time).
+- Holt-Winters: because AQI trends downward each year, compare (i) seasonal only, (ii) additive trend, (iii) damped additive trend. Report which wins and pick one for the main table.
+- Evaluate at TWO horizons, same rules for every model:
+  a. Full-year: fit on 2015-2018, forecast all 2019 weeks at once. Naive = last observed 2018 week repeated. Seasonal naive = same week of 2018.
+  b. Rolling one-week-ahead: for each 2019 week, predict it using actual data up to the previous week, keeping the fitted parameters fixed (no refitting). Naive = previous week's actual.
+  Report RMSE and MAE for all four models at both horizons in one table. Plot forecasts vs actuals.
 - Residual diagnostics for SARIMA (Ljung-Box, residual plot).
-- LOCKDOWN CASE STUDY: refit the best model on 2015-2019, forecast Jan-Jun 2020, plot against actual 2020 values, mark 25 March 2020 (lockdown start), and quantify the gap between forecast and actual after that date.
+- LOCKDOWN CASE STUDY, done fairly:
+  - Refit the best model on 2015-2019 and forecast Jan to Jun 2020.
+  - Report the forecast error separately for 2020-01-01 to 2020-03-24 (pre-lockdown, the model's normal error) and 2020-03-25 onward.
+  - Lockdown effect estimate = the post-25-March gap MINUS the pre-lockdown error level. Explain in plain language that the raw gap overstates the effect because air was already improving year on year.
+  - Mark 25 March 2020 on the plot. State clearly that this is an association, not proof of cause (weather also varies).
 - Stop and report.
 
 PHASE 5: CLASSIFICATION (will tomorrow be a bad air day?)
