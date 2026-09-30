@@ -1,0 +1,108 @@
+{
+  "labels": {
+    "Naive": "Naive",
+    "Seasonal naive": "Seasonal naive",
+    "Holt-Winters": "Holt-Winters (seasonal only)",
+    "SARIMA": "SARIMA(0, 1, 1)x(1, 1, 1, 52)"
+  },
+  "hw_variant": "HW seasonal only",
+  "sarima": {
+    "order": [
+      0,
+      1,
+      1
+    ],
+    "seasonal_order": [
+      1,
+      1,
+      1,
+      52
+    ],
+    "aic": 1702.932625289457
+  },
+  "best_full_year": "Seasonal naive",
+  "best_rolling": "Holt-Winters",
+  "train_weeks": [
+    "2015-01-11",
+    "2018-12-30"
+  ],
+  "test_weeks": [
+    "2019-01-06",
+    "2019-12-29"
+  ],
+  "lockdown_date": "2020-03-25",
+  "lockdown_main": "Seasonal naive",
+  "lockdown_models": [
+    "Seasonal naive",
+    "Holt-Winters"
+  ],
+  "lockdown_pre_weeks": [
+    "2020-01-05",
+    "2020-03-22"
+  ],
+  "lockdown_post_weeks": [
+    "2020-04-05",
+    "2020-06-28"
+  ],
+  "lockdown_excluded_weeks": [
+    "2020-03-29"
+  ],
+  "lockdown_results": {
+    "Seasonal naive": {
+      "pre": {
+        "n": 12,
+        "me": -26.60714285714286,
+        "mae": 48.297619047619044,
+        "rmse": 55.045760184465756,
+        "mpe": -7.616380199088307,
+        "actual": 256.14285714285717,
+        "forecast": 282.75
+      },
+      "post": {
+        "n": 13,
+        "me": -90.63736263736261,
+        "mae": 93.97802197802197,
+        "rmse": 105.70920688720607,
+        "mpe": -38.88466468923244,
+        "actual": 127.23076923076923,
+        "forecast": 217.86813186813185
+      },
+      "effect": -64.03021978021975,
+      "effect_pct": -31.26828449014413,
+      "secs": 6.870799552416429e-05,
+      "pre19": -11.464285714285708,
+      "post19": -17.428571428571427,
+      "n_pre19": 12,
+      "n_post19": 14,
+      "placebo": -5.964285714285719
+    },
+    "Holt-Winters": {
+      "pre": {
+        "n": 12,
+        "me": -17.70139984252785,
+        "mae": 32.418072442875015,
+        "rmse": 36.53889971883788,
+        "mpe": -7.767139970761032,
+        "actual": 256.14285714285717,
+        "forecast": 273.844256985385
+      },
+      "post": {
+        "n": 13,
+        "me": -93.07414899129584,
+        "mae": 93.07414899129584,
+        "rmse": 104.04123061724208,
+        "mpe": -39.61418994368845,
+        "actual": 127.23076923076923,
+        "forecast": 220.30491822206508
+      },
+      "effect": -75.372749148768,
+      "effect_pct": -31.84704997292742,
+      "secs": 0.05625237499771174,
+      "pre19": -70.42786884584184,
+      "post19": -80.8532222506851,
+      "n_pre19": 12,
+      "n_post19": 14,
+      "placebo": -10.425353404843264
+    }
+  }
+}

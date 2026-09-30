@@ -57,6 +57,24 @@ QDA_REG_GRID = [0.001, 0.01, 0.05, 0.1]
 CV = TimeSeriesSplit(n_splits=5, gap=1)
 
 
+def calendar_features(dates: pd.DatetimeIndex) -> pd.DataFrame:
+    """Month and day of week as points on a circle (sin/cos).
+
+    December (12) and January (1) are neighbours in the calendar but far
+    apart as plain numbers; on a circle they sit next to each other. Same
+    idea for Sunday and Monday. Kept as its own function so the app encodes a
+    date exactly the same way as training did.
+    """
+    month = dates.month
+    dow = dates.dayofweek  # Monday = 0
+    return pd.DataFrame({
+        "month_sin": np.sin(2 * np.pi * (month - 1) / 12),
+        "month_cos": np.cos(2 * np.pi * (month - 1) / 12),
+        "dow_sin": np.sin(2 * np.pi * dow / 7),
+        "dow_cos": np.cos(2 * np.pi * dow / 7),
+    }, index=dates)
+
+
 def build_features(df: pd.DataFrame) -> pd.DataFrame:
     """Features for each day t, using only days up to and including t.
 
@@ -66,9 +84,7 @@ def build_features(df: pd.DataFrame) -> pd.DataFrame:
     - aqi_lag1, aqi_lag2, aqi_lag7: AQI 1, 2 and 7 days before today.
     - aqi_roll7_mean: mean AQI of the 7 days ending today (t-6 to t).
       rolling() only looks backwards, so no future day is included.
-    - month and day of week as sin/cos: December (12) and January (1) are
-      neighbours in the calendar but far apart as numbers; putting them on a
-      circle keeps neighbours close. Same idea for Sunday and Monday.
+    - month and day of week as sin/cos (see calendar_features).
     """
     f = pd.DataFrame(index=df.index)
     for p in POLLUTANTS:
@@ -78,13 +94,7 @@ def build_features(df: pd.DataFrame) -> pd.DataFrame:
     f["aqi_lag2"] = df["AQI"].shift(2)
     f["aqi_lag7"] = df["AQI"].shift(7)
     f["aqi_roll7_mean"] = df["AQI"].rolling(7).mean()
-    month = df.index.month
-    dow = df.index.dayofweek  # Monday = 0
-    f["month_sin"] = np.sin(2 * np.pi * (month - 1) / 12)
-    f["month_cos"] = np.cos(2 * np.pi * (month - 1) / 12)
-    f["dow_sin"] = np.sin(2 * np.pi * dow / 7)
-    f["dow_cos"] = np.cos(2 * np.pi * dow / 7)
-    return f
+    return f.join(calendar_features(df.index))
 
 
 def build_target(df: pd.DataFrame) -> pd.Series:
@@ -411,6 +421,18 @@ def main() -> None:
                   "change_day": change.to_numpy(), **{f"pred_{m}": preds[m] for m in preds},
                   **{f"prob_{m}": probs[m] for m in probs}}).to_csv(
         OUT_DIR / "phase5_test_predictions_2019.csv", index=False, date_format="%Y-%m-%d")
+
+    # Real 2019 feature rows for the app's "replay a real day" mode, with
+    # what actually happened the next day.
+    replay = X_test.copy()
+    replay["aqi_bucket_today"] = df.loc[X_test.index, "AQI_Bucket"]
+    replay["next_day_aqi"] = df["AQI"].shift(-1).loc[X_test.index]
+    replay["next_day_bucket"] = df["AQI_Bucket"].shift(-1).loc[X_test.index]
+    replay["actual_tomorrow_bad"] = y_test
+    replay["change_day"] = change
+    replay["change_type"] = np.where(to_bad, "turns bad", np.where(to_good, "turns better", ""))
+    replay["prob_logreg"] = probs["Logistic regression"]
+    replay.to_csv(OUT_DIR / "phase5_replay_2019.csv", index_label="Date", date_format="%Y-%m-%d")
 
     # =================================================================
     # 7. Logistic regression coefficients

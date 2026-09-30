@@ -1,0 +1,16 @@
+{
+  "findings": [
+    "**Delhi's air follows a strong yearly cycle.** The monthly mean AQI is highest in November (402) and lowest in August (131), about 3.1 times higher. The decomposition gives a seasonal strength of 0.83, so once the trend is removed most of what is left is the repeating yearly pattern. This is why the forecasting models in Phase 4 need a seasonal part.",
+    "**Winter is the bad-air season, the monsoon is the clean season.** The months from October to January all have mean AQI above 300 (Oct 312, Nov 402, Dec 371, Jan 360), while July to September sit between 131 and 157. Monsoon rain washes particles out of the air; in winter, cold still air traps them near the ground.",
+    "**Diwali falls inside the worst period, but it is not always the single worst day.** AQI the day after Diwali was higher than on Diwali itself in 3 of 5 years. In 2 of 5 years the highest Oct-Nov AQI came within 7 days after Diwali (counting Diwali itself). The table in section 1 lists the exact values. Diwali overlaps with crop-stubble burning and falling temperatures, so this data alone cannot separate the effect of fireworks from those other causes.",
+    "**Bad-air days are common, not rare.** 37.8% of all days had AQI above 300. The share varies by year from 13.7% (2020) to 50.1% (2015). 2020 is low partly because it only covers January to June, which misses the Oct-Nov season. The classes are imbalanced but not extreme, which matters for choosing metrics in Phase 5.",
+    "**Tomorrow usually looks like today.** In the training years, tomorrow's bad/not-bad status matched today's on 85.3% of days, and the lag-1 correlation of AQI is 0.90. A \"tomorrow = today\" baseline will therefore be hard to beat on accuracy; the real test for Phase 5 models is the days when the status changes.",
+    "**Particulate matter drives the AQI.** In the training period the two pollutants most correlated with AQI are PM10 (r = 0.865) and PM2.5 (r = 0.865), well ahead of Benzene (r = 0.648). They are also correlated with each other (r = 0.84). This fits how AQI works: it is set by the worst pollutant, which in Delhi is usually PM2.5 or PM10.",
+    "**Some pollutants carry overlapping information.** 1 pollutant pair(s) have |r| of 0.8 or more in 2015-2018 (section 7a). Correlated inputs can make logistic regression coefficients unstable, so this is a point to watch when interpreting coefficients in Phase 5.",
+    "**The first half of 2020 was cleaner than earlier years.** The mean AQI for January to June was 182 in 2020, compared with 246 to 306 for the same months in 2015-2019. Phase 4 will test how much of this coincides with the 25 March 2020 lockdown."
+  ],
+  "start": "2015-01-01",
+  "end": "2020-07-01",
+  "n_days": 2009,
+  "bad_air_threshold": 300
+}

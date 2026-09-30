@@ -46,7 +46,7 @@ Figure: `phase4_acf_pacf.png`.
 
 ## 4. SARIMA grid search (d = 1, D = 1, season = 52)
 
-Grid: p in [0, 1, 2], q in [0, 1, 2], P in [0, 1], Q in [0, 1], giving 36 models. Fitted on the 208 training weeks, ranked by AIC. Total grid time: 49.5 s.
+Grid: p in [0, 1, 2], q in [0, 1, 2], P in [0, 1], Q in [0, 1], giving 36 models. Fitted on the 208 training weeks, ranked by AIC. Total grid time: 50.4 s.
 Models that failed to converge (excluded): 5.
 
 Top 10 by AIC:
@@ -54,11 +54,11 @@ Top 10 by AIC:
 | Rank | (p,d,q) | (P,D,Q,s) | AIC | Converged | Fit time (s) |
 |---|---|---|---|---|---|
 | 1 | (0, 1, 1) | (1, 1, 1, 52) | 1702.9 | yes | 1.5 |
-| 2 | (0, 1, 2) | (1, 1, 1, 52) | 1704.8 | yes | 1.6 |
+| 2 | (0, 1, 2) | (1, 1, 1, 52) | 1704.8 | yes | 1.7 |
 | 3 | (1, 1, 1) | (1, 1, 1, 52) | 1704.8 | yes | 1.6 |
-| 4 | (2, 1, 1) | (1, 1, 1, 52) | 1705.3 | yes | 3.6 |
-| 5 | (2, 1, 0) | (1, 1, 1, 52) | 1705.3 | yes | 1.5 |
-| 6 | (1, 1, 2) | (1, 1, 1, 52) | 1706.4 | no | 3.8 |
+| 4 | (2, 1, 1) | (1, 1, 1, 52) | 1705.3 | yes | 3.7 |
+| 5 | (2, 1, 0) | (1, 1, 1, 52) | 1705.3 | yes | 1.6 |
+| 6 | (1, 1, 2) | (1, 1, 1, 52) | 1706.4 | no | 3.9 |
 | 7 | (2, 1, 2) | (1, 1, 1, 52) | 1707.1 | no | 3.9 |
 | 8 | (0, 1, 1) | (1, 1, 0, 52) | 1707.6 | yes | 0.6 |
 | 9 | (0, 1, 1) | (0, 1, 1, 52) | 1708.5 | yes | 1.0 |

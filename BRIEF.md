@@ -56,7 +56,7 @@ PHASE 4: FORECASTING (time series)
 
 PHASE 5: CLASSIFICATION (will tomorrow be a bad air day?)
 - Target: 1 if NEXT day's AQI > 300 (Very Poor or Severe), else 0.
-- Features using ONLY information available today: today's pollutant levels, AQI lags (1, 2, 7 days), 7-day rolling mean AQI, month encoded as sin/cos, day of week. Explicitly check there is no leakage from future values.
+- Features using ONLY information available today: today's pollutant levels, today's AQI (aqi_today), AQI lags (1, 2, 7 days before today), 7-day rolling mean AQI (ending today), month encoded as sin/cos, day of week (encoded as sin/cos). Explicitly check there is no leakage from future values.
 - Split BY TIME: train = 2015-2018, test = 2019. Drop the 2018-12-31 training row (its label is from 2019). Fit imputation and scaling on train only (use a sklearn Pipeline).
 - Models: baseline (tomorrow's class = today's class), logistic regression (class_weight="balanced"), LDA, QDA. If QDA fails or warns because of near-singular covariance, use a small reg_param and report the value and why.
 - Tune logistic regression C with GridSearchCV using TimeSeriesSplit (not random k-fold), scoring F1.
@@ -69,12 +69,17 @@ PHASE 5: CLASSIFICATION (will tomorrow be a bad air day?)
 - Stop and report.
 
 PHASE 6: STREAMLIT APP (app.py)
+- Data sources: the app only reads saved files (reports/outputs/ CSVs and JSON, models/logreg_pipeline.joblib, models/logreg_pipeline_meta.json). No retraining, no hardcoded numbers in app text; every number displayed comes from those files.
 - Page 1: overview (AQI trend chart and key EDA findings).
-- Page 2: forecast (actual vs predicted, model comparison table).
-- Page 3: "Tomorrow's risk": user enters today's pollutant values and recent AQI, app shows the predicted probability of a bad air day.
-- Page 4: lockdown case study chart.
-- Design rules: clean and minimal. No pill-shaped buttons, no purple gradients, no emoji icons, no em dashes in any text, no animations, no "Made with AI" tags, no made-up counters or metrics. Only display numbers loaded from real model outputs.
+- Page 2: forecast: both horizons (full-year and rolling) with the comparison table, and a one-paragraph plain explanation of why seasonal naive won the full-year horizon.
+- Page 3: "Tomorrow's risk", two modes:
+  a. Replay a real day (default): pick any 2019 date; the app fills in that day's real feature values, shows the predicted probability of a bad air day tomorrow, and what actually happened next day (AQI and bucket). Mark whether the date is a change day, with a quick way to jump to change days.
+  b. Custom input: all features editable, pre-filled with a real 2019 day's values rather than zeros.
+  Below the result, a short plain-language note that the model reads today's air, not tomorrow's weather, so it misses many sudden worsening days (with the real change-day numbers from the saved outputs).
+- Page 4: lockdown case study: both models (seasonal naive and Holt-Winters), pre/post errors, the 2019 placebo, the 25 March marker, and the "association, not proof of cause" note.
+- Design rules: clean and minimal. No pill-shaped buttons, no purple gradients, no emoji icons, no em dashes in any text, no animations, no "Made with AI" tags, no made-up counters or metrics. Only display numbers loaded from real model outputs. .streamlit/config.toml with a neutral, restrained theme (no purple). Charts consistent in style, readable axis labels and units. Plain, specific copy.
 - Load saved models (joblib) rather than retraining on every page load.
+- Verification: test every page with streamlit.testing.v1.AppTest, including replay of at least one change day and one normal day, and launch the app locally once to confirm it starts.
 
 PHASE 7: WRAP-UP
 - README: problem statement, dataset and source (cite from data/SOURCE.md), method per phase, results tables (real numbers), limitations (data ends mid-2020, weekly averaging hides daily spikes, missing data handling), and how to run.

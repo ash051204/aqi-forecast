@@ -12,6 +12,7 @@ Run from the project root:
     .venv/bin/python src/eda.py
 """
 
+import json
 from pathlib import Path
 
 import matplotlib
@@ -29,6 +30,7 @@ ROOT = Path(__file__).resolve().parents[1]
 DATA_PATH = ROOT / "data" / "processed" / "delhi_daily.csv"
 REPORT_PATH = ROOT / "reports" / "phase3_eda.md"
 FIG_DIR = ROOT / "reports" / "figures"
+OUT_DIR = ROOT / "reports" / "outputs"
 
 POLLUTANTS = ["PM2.5", "PM10", "NO", "NO2", "NOx", "NH3", "CO", "SO2", "O3",
               "Benzene", "Toluene"]
@@ -422,6 +424,15 @@ def main() -> None:
     text = "\n".join(lines) + "\n"
     assert "\u2014" not in text and "\u2013" not in text, "report contains an em or en dash"
     REPORT_PATH.write_text(text)
+
+    # Files for the Streamlit app, which only reads saved outputs.
+    OUT_DIR.mkdir(parents=True, exist_ok=True)
+    df[["AQI", "AQI_Bucket"]].to_csv(OUT_DIR / "phase3_daily_aqi.csv", date_format="%Y-%m-%d")
+    findings = [l.split(". ", 1)[1] for l in lines[lines.index("## 9. Findings in plain language"):]
+                if l[:1].isdigit() and ". " in l]
+    (OUT_DIR / "phase3_findings.json").write_text(json.dumps(
+        dict(findings=findings, start=str(df.index.min().date()), end=str(df.index.max().date()),
+             n_days=len(df), bad_air_threshold=BAD_AIR_THRESHOLD), indent=2))
     print(f"\nSaved report to {REPORT_PATH.relative_to(ROOT)}")
 
 

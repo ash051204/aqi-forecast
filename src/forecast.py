@@ -15,6 +15,7 @@ Run from the project root:
     .venv/bin/python src/forecast.py
 """
 
+import json
 import time
 import warnings
 from itertools import product
@@ -688,6 +689,26 @@ def main() -> None:
     else:
         existing = existing.rstrip() + "\n\n" + block + "\n"
     RESULTS_PATH.write_text(existing)
+
+    # Summary for the Streamlit app, which only reads saved outputs.
+    def plain(d):
+        return {k: (plain(v) if isinstance(v, dict) else (int(v) if isinstance(v, (int, np.integer)) else float(v)))
+                for k, v in d.items()}
+    summary = dict(
+        labels={m: labels.get(m, m) for m in MODEL_NAMES},
+        hw_variant=hw_best["name"],
+        sarima=dict(order=list(best["order"]), seasonal_order=list(best["sorder"]), aic=float(best["aic"])),
+        best_full_year=best_full, best_rolling=best_roll,
+        train_weeks=[str(train.index.min().date()), str(train.index.max().date())],
+        test_weeks=[str(test.index.min().date()), str(test.index.max().date())],
+        lockdown_date=str(LOCKDOWN.date()),
+        lockdown_main=lock_main, lockdown_models=lock_models,
+        lockdown_pre_weeks=[str(hold.index[pre_mask].min().date()), str(hold.index[pre_mask].max().date())],
+        lockdown_post_weeks=[str(hold.index[post_mask].min().date()), str(hold.index[post_mask].max().date())],
+        lockdown_excluded_weeks=[str(d.date()) for d in straddle],
+        lockdown_results={m: plain({k: v for k, v in r.items()}) for m, r in lock_results.items()},
+    )
+    (OUT_DIR / "phase4_summary.json").write_text(json.dumps(summary, indent=2))
     print(f"\nSaved {REPORT_PATH.relative_to(ROOT)} and {RESULTS_PATH.relative_to(ROOT)}")
 
 
