@@ -333,6 +333,33 @@ def main() -> None:
     t0 = time.perf_counter()
     sarima, _ = fit_sarima(train, best["order"], best["sorder"])
     sarima_secs = time.perf_counter() - t0
+
+    # Over-differencing check. If we differenced once too often, the model
+    # tries to "undo" it with an MA(1) coefficient close to -1. In that case
+    # we try the same structure with d = 0. AIC cannot compare d = 0 with
+    # d = 1 (different data after differencing), so the choice is made on a
+    # validation year inside the training period: fit on 2015-2017, forecast
+    # 2018, compare RMSE. 2019 is never used for this choice.
+    ma1 = float(sarima.params.get("ma.L1", np.nan))
+    overdiff = dict(ma1=ma1, triggered=bool(ma1 < -0.9), rows=[])
+    if overdiff["triggered"]:
+        fit_part = train[train.index.year <= 2017]
+        val = train[train.index.year == 2018]
+        for d_try in (0, 1):
+            o = (best["order"][0], d_try, best["order"][2])
+            r_try, conv_try = fit_sarima(fit_part, o, best["sorder"])
+            overdiff["rows"].append(dict(order=o, rmse=rmse(val, r_try.forecast(len(val))), converged=conv_try))
+        ok = [r for r in overdiff["rows"] if r["converged"]]
+        # With only 3 years to fit on, the optimiser may fail; an unconverged
+        # fit is not trusted, so if neither converges we keep d = 1.
+        winner = min(ok, key=lambda r: r["rmse"]) if ok else dict(order=best["order"])
+        overdiff["fallback"] = not ok
+        if winner["order"] != best["order"]:
+            best = best.copy()
+            best["order"] = winner["order"]
+            sarima, _ = fit_sarima(train, best["order"], best["sorder"])
+            best["aic"] = sarima.aic
+        overdiff["winner"] = winner["order"]
     full["SARIMA"] = sarima.forecast(h).to_numpy()
     # Rolling: append 2019 to the model WITHOUT refitting; the Kalman filter
     # then produces each week's forecast from data up to the week before.
@@ -362,6 +389,25 @@ def main() -> None:
     out("|---|---|---|---|")
     for name in sarima.params.index:
         out(f"| {name} | {sarima.params[name]:.4f} | {sarima.bse[name]:.4f} | {sarima.pvalues[name]:.4f} |")
+    out()
+    out(f"**Over-differencing check:** the MA(1) coefficient of the chosen model is {overdiff['ma1']:.4f}. "
+        "A value close to -1 (below -0.9) would suggest the first difference is not needed.")
+    if overdiff["triggered"]:
+        out()
+        out("Because it is below -0.9, d = 0 and d = 1 were compared on a validation year (fit 2015-2017, forecast 2018):")
+        out()
+        out("| (p,d,q) | 2018 validation RMSE | Converged |")
+        out("|---|---|---|")
+        for r in overdiff["rows"]:
+            out(f"| {r['order']} | {r['rmse']:.1f} | {'yes' if r['converged'] else 'no'} |")
+        out()
+        if overdiff["fallback"]:
+            out("Neither validation fit converged, so the check is inconclusive and d = 1 is kept.")
+        out(f"Chosen after the check: (p,d,q) = {overdiff['winner']}, refit on 2015-2018.")
+    else:
+        out(f"It is not below -0.9, so there is no sign of over-differencing and d = 1 is kept. "
+            "(For reference, the seasonal MA coefficient is "
+            f"{sarima.params.get('ma.S.L52', np.nan):.4f}, also not close to -1.)")
     out()
     grid.assign(order=grid["order"].astype(str), sorder=grid["sorder"].astype(str)).to_csv(
         OUT_DIR / "phase4_sarima_grid.csv", index=False)
@@ -469,67 +515,76 @@ def main() -> None:
     # =================================================================
     # 7. Lockdown case study
     # =================================================================
-    # The best model is chosen by FULL-YEAR RMSE, because the lockdown test
-    # is also a many-weeks-ahead forecast (Jan to Jun 2020 made at the end of
-    # 2019). 2019 was used to pick the model; 2020 has not been touched yet.
-    lock_model = best_full
+    # Main model = best FULL-YEAR model on 2019, because the lockdown test is
+    # also a many-weeks-ahead forecast (Jan to Jun 2020 made at the end of
+    # 2019). 2019 was used to pick it; 2020 has not been touched before now.
+    # Holt-Winters (the chosen variant) is run through the exact same
+    # calculation as a robustness check.
+    lock_main = best_full
+    lock_models = [lock_main] + (["Holt-Winters"] if lock_main != "Holt-Winters" else ["Seasonal naive"])
     h2 = len(hold)
-    t0 = time.perf_counter()
-    lower = upper = None
-    if lock_model == "Naive":
-        fc = pd.Series(y_to_2019.iloc[-1], index=hold.index)
-    elif lock_model == "Seasonal naive":
-        fc = pd.Series(y_to_2019.iloc[-SEASON:].iloc[:h2].to_numpy(), index=hold.index)
-    elif lock_model == "Holt-Winters":
-        fc = fit_hw(y_to_2019, HW_VARIANTS[hw_best["name"]])[0].forecast(h2)
-    else:
-        refit, _ = fit_sarima(y_to_2019, best["order"], best["sorder"])
-        pred = refit.get_forecast(h2)
-        fc = pred.predicted_mean
-        ci = pred.conf_int(alpha=0.05)
-        lower, upper = ci.iloc[:, 0], ci.iloc[:, 1]
-    lock_secs = time.perf_counter() - t0
-
-    lock = pd.DataFrame({"Actual": hold, "Forecast": fc.to_numpy()}, index=hold.index)
-    lock["Error"] = lock["Actual"] - lock["Forecast"]  # negative = cleaner than forecast
-    lock["Pct error"] = 100 * lock["Error"] / lock["Forecast"]
-    week_start = lock.index - pd.Timedelta(days=6)
-    # Pre-lockdown weeks end on or before 22 March. The week of 23 to 29 March
+    week_start = hold.index - pd.Timedelta(days=6)
+    # Pre-lockdown weeks end before 25 March. The week of 23 to 29 March
     # contains 2 days before and 5 days after the lockdown began, so it is
     # left out of both groups instead of being forced into one.
-    pre_mask = lock.index < LOCKDOWN
+    pre_mask = hold.index < LOCKDOWN
     post_mask = week_start >= LOCKDOWN
-    straddle = lock.index[~pre_mask & ~post_mask]
-    lock["Period"] = np.where(pre_mask, "pre", np.where(post_mask, "post", "straddle"))
-    lock.to_csv(OUT_DIR / "phase4_lockdown_2020.csv", date_format="%Y-%m-%d")
+    straddle = hold.index[~pre_mask & ~post_mask]
+    # Same split for the 2019 placebo (no lockdown that year).
+    pre19_mask = test.index < "2019-03-25"
+    post19_mask = ((test.index - pd.Timedelta(days=6)) >= "2019-03-25") & (test.index <= "2019-06-30")
+    steps = pd.Series(np.arange(1, h2 + 1), index=hold.index)
 
-    def summary(mask):
-        s = lock[mask]
-        return dict(n=len(s), me=s["Error"].mean(), mae=s["Error"].abs().mean(),
-                    rmse=float(np.sqrt((s["Error"] ** 2).mean())), mpe=s["Pct error"].mean(),
-                    actual=s["Actual"].mean(), forecast=s["Forecast"].mean())
+    def forecast_2020(model_name):
+        """Forecast Jan to Jun 2020 from the end of 2019 with the given model."""
+        t0 = time.perf_counter()
+        if model_name == "Naive":
+            fc = pd.Series(y_to_2019.iloc[-1], index=hold.index)
+        elif model_name == "Seasonal naive":
+            fc = pd.Series(y_to_2019.iloc[-SEASON:].iloc[:h2].to_numpy(), index=hold.index)
+        elif model_name == "Holt-Winters":
+            fc = fit_hw(y_to_2019, HW_VARIANTS[hw_best["name"]])[0].forecast(h2)
+        else:
+            fc = fit_sarima(y_to_2019, best["order"], best["sorder"])[0].forecast(h2)
+        return pd.Series(fc.to_numpy(), index=hold.index), time.perf_counter() - t0
 
-    pre, post = summary(pre_mask), summary(post_mask)
-    effect = post["me"] - pre["me"]
-    effect_pct = post["mpe"] - pre["mpe"]
+    def period_stats(err, pct, actual, fcast, mask):
+        return dict(n=int(mask.sum()), me=err[mask].mean(), mae=err[mask].abs().mean(),
+                    rmse=float(np.sqrt((err[mask] ** 2).mean())), mpe=pct[mask].mean(),
+                    actual=actual[mask].mean(), forecast=fcast[mask].mean())
 
-    # Fairness check: the same model, fitted on 2015-2018, forecasting 2019
-    # (a year with no lockdown). Its signed error for the same calendar
-    # weeks shows what "normal" long-horizon error looks like in spring.
-    f19 = full[lock_model]
-    err19 = test - f19
-    pre19 = err19[(err19.index.month <= 3) & (err19.index < "2019-03-25")]
-    post19 = err19[(err19.index - pd.Timedelta(days=6) >= "2019-03-25") & (err19.index <= "2019-06-30")]
+    lock_results = {}
+    lock_table = pd.DataFrame({"Actual": hold}, index=hold.index)
+    for m in lock_models:
+        fc, secs = forecast_2020(m)
+        # Sign convention: error = actual minus forecast.
+        # Negative error = the air was cleaner than the model expected.
+        err = hold - fc
+        pct = 100 * err / fc
+        pre = period_stats(err, pct, hold, fc, pre_mask)
+        post = period_stats(err, pct, hold, fc, post_mask)
+        # Placebo: the same model fitted on 2015-2018, forecasting 2019.
+        err19 = test - full[m]
+        placebo = err19[post19_mask].mean() - err19[pre19_mask].mean()
+        lock_results[m] = dict(pre=pre, post=post, effect=post["me"] - pre["me"],
+                               effect_pct=post["mpe"] - pre["mpe"], secs=secs,
+                               pre19=err19[pre19_mask].mean(), post19=err19[post19_mask].mean(),
+                               n_pre19=int(pre19_mask.sum()), n_post19=int(post19_mask.sum()),
+                               placebo=placebo)
+        lock_table[f"Forecast: {m}"] = fc
+        lock_table[f"Error (actual - forecast): {m}"] = err
+    lock_table["Period"] = np.where(pre_mask, "pre", np.where(post_mask, "post", "straddle"))
+    lock_table.to_csv(OUT_DIR / "phase4_lockdown_2020.csv", date_format="%Y-%m-%d")
 
     fig, ax = plt.subplots(figsize=(14, 5.5))
     ax.plot(y_to_2019.index[-26:], y_to_2019.iloc[-26:], color="black", linewidth=1, alpha=0.5, label="Actual (late 2019)")
-    ax.plot(lock.index, lock["Actual"], color="black", linewidth=2, marker="o", markersize=3, label="Actual 2020")
-    ax.plot(lock.index, lock["Forecast"], color="tab:red", linewidth=1.8, linestyle="--",
-            label=f"Forecast from end of 2019: {labels.get(lock_model, lock_model)}")
-    if lower is not None:
-        ax.fill_between(lock.index, lower, upper, color="tab:red", alpha=0.12, label="95% prediction interval")
+    ax.plot(hold.index, hold, color="black", linewidth=2, marker="o", markersize=3, label="Actual 2020")
+    for m, style in zip(lock_models, [("tab:red", "--", 1.8), ("tab:orange", ":", 1.5)]):
+        role = "main" if m == lock_main else "robustness check"
+        ax.plot(hold.index, lock_table[f"Forecast: {m}"], color=style[0], linestyle=style[1], linewidth=style[2],
+                label=f"Forecast from end of 2019: {labels.get(m, m)} ({role})")
     ax.axvline(LOCKDOWN, color="tab:blue", linewidth=1.5, label="Lockdown start, 25 March 2020")
-    ax.axvspan(LOCKDOWN, lock.index.max(), color="tab:blue", alpha=0.06)
+    ax.axvspan(LOCKDOWN, hold.index.max(), color="tab:blue", alpha=0.06)
     ax.set_title("Delhi weekly AQI in 2020: forecast vs actual around the 25 March lockdown")
     ax.set_xlabel("Week ending (Sunday)")
     ax.set_ylabel("Weekly mean AQI")
@@ -538,78 +593,93 @@ def main() -> None:
     fig.savefig(FIG_DIR / "phase4_lockdown_case_study.png", dpi=150)
     plt.close(fig)
 
+    main_res = lock_results[lock_main]
     out("## 7. Lockdown case study (January to June 2020)")
     out()
-    if lock_model in ("Naive", "Seasonal naive"):
-        how = (f"This model has no parameters to estimate, so \"refitting\" on 2015-2019 simply means the forecast "
-               f"is built from the data up to the end of 2019"
-               + (": each 2020 week gets the value of the same week of 2019 (52 weeks earlier)." if lock_model == "Seasonal naive"
-                  else ": every 2020 week gets the last 2019 week's value."))
-    else:
-        how = (f"Refit on all {len(y_to_2019)} weeks ending 2015-2019 (same specification, parameters re-estimated) "
-               f"in {lock_secs:.1f} s.")
-    out(f"Model: **{labels.get(lock_model, lock_model)}**, the best full-year model on 2019 (lowest full-year RMSE). "
-        f"{how} Forecast: {h2} weeks ending {hold.index.min().date()} to {hold.index.max().date()}.")
+    out(f"Main model: **{labels.get(lock_main, lock_main)}**, the best full-year model on 2019 (lowest full-year RMSE). "
+        + ("It has no parameters, so it needs no refitting: each 2020 week is forecast as the same week of 2019 "
+           "(52 weeks earlier). " if lock_main == "Seasonal naive" else "Refit on all weeks ending 2015-2019. ")
+        + f"Robustness check: **{labels.get(lock_models[1], lock_models[1])}**, refit on all {len(y_to_2019)} weeks "
+        f"ending 2015-2019 (same variant, parameters re-estimated, {lock_results[lock_models[1]]['secs']:.2f} s). "
+        f"Both forecast {h2} weeks ending {hold.index.min().date()} to {hold.index.max().date()}.")
     out()
-    out(f"- Pre-lockdown weeks: ending {lock.index[pre_mask].min().date()} to {lock.index[pre_mask].max().date()} "
-        f"({pre['n']} weeks; the first one includes 30 and 31 December 2019).")
-    out(f"- Post-lockdown weeks: ending {lock.index[post_mask].min().date()} to {lock.index[post_mask].max().date()} ({post['n']} weeks).")
+    out(f"- Pre-lockdown weeks: ending {hold.index[pre_mask].min().date()} to {hold.index[pre_mask].max().date()} "
+        f"({int(pre_mask.sum())} weeks; the first one includes 30 and 31 December 2019).")
+    out(f"- Post-lockdown weeks: ending {hold.index[post_mask].min().date()} to {hold.index[post_mask].max().date()} ({int(post_mask.sum())} weeks).")
     out(f"- Left out: week ending {', '.join(str(d.date()) for d in straddle)} (23 to 29 March), which mixes 2 days before "
         "and 5 days after the start of the lockdown.")
     out()
-    out("Error = actual minus forecast. Negative means the air was cleaner than the model expected.")
+    out("**Sign convention: error = actual minus forecast.** A negative error means the air was cleaner (lower AQI) "
+        "than the model expected; a positive error means it was dirtier.")
     out()
-    out("| Period | Weeks | Mean actual | Mean forecast | Mean error | MAE | RMSE | Mean % error |")
-    out("|---|---|---|---|---|---|---|---|")
-    for name, s in [("Pre-lockdown (1 Jan to 22 Mar)", pre), ("Post-lockdown (from 30 Mar)", post)]:
-        out(f"| {name} | {s['n']} | {s['actual']:.1f} | {s['forecast']:.1f} | {s['me']:+.1f} | {s['mae']:.1f} | "
-            f"{s['rmse']:.1f} | {s['mpe']:+.1f}% |")
+    out("| Model | Period | Weeks | Mean actual | Mean forecast | Mean error (actual - forecast) | MAE | RMSE | Mean % error (actual - forecast) |")
+    out("|---|---|---|---|---|---|---|---|---|")
+    for m in lock_models:
+        r = lock_results[m]
+        for name, st in [("Pre-lockdown", r["pre"]), ("Post-lockdown", r["post"])]:
+            out(f"| {labels.get(m, m)} | {name} | {st['n']} | {st['actual']:.1f} | {st['forecast']:.1f} | "
+                f"{st['me']:+.1f} | {st['mae']:.1f} | {st['rmse']:.1f} | {st['mpe']:+.1f}% |")
     out()
-    out(f"**Estimated lockdown effect = post-lockdown mean error minus pre-lockdown mean error = "
-        f"{post['me']:+.1f} - ({pre['me']:+.1f}) = {effect:+.1f} AQI points** "
-        f"(in percentage terms {post['mpe']:+.1f}% - ({pre['mpe']:+.1f}%) = {effect_pct:+.1f} percentage points).")
+    out("Estimated lockdown effect = post-lockdown mean error minus pre-lockdown mean error. The 2019 placebo applies "
+        "the identical calculation to 2019, a year with no lockdown, using each model fitted on 2015-2018 "
+        f"(pre = weeks ending up to 24 Mar 2019, {main_res['n_pre19']} weeks; post = weeks starting 25 Mar to end of "
+        f"June 2019, {main_res['n_post19']} weeks).")
     out()
-    out(f"Context from 2019, a year without a lockdown: the same model, forecasting 2019 from the end of 2018, had a "
-        f"mean error of {pre19.mean():+.1f} for weeks ending up to 24 Mar 2019 ({len(pre19)} weeks) and "
-        f"{post19.mean():+.1f} for weeks starting 25 Mar to the end of June 2019 ({len(post19)} weeks), a post-minus-pre "
-        f"difference of {post19.mean() - pre19.mean():+.1f}. So in a normal year the same calculation gives "
-        f"{post19.mean() - pre19.mean():+.1f}, against {effect:+.1f} in 2020.")
+    out("| Model | 2020 effect (AQI points) | 2020 effect (percentage points) | 2019 placebo (AQI points) | 2020 effect minus placebo |")
+    out("|---|---|---|---|---|")
+    for m in lock_models:
+        r = lock_results[m]
+        out(f"| {labels.get(m, m)} | {r['effect']:+.1f} | {r['effect_pct']:+.1f} | {r['placebo']:+.1f} | "
+            f"{r['effect'] - r['placebo']:+.1f} |")
+    out()
+    rb = lock_results[lock_models[1]]
+    agree = np.sign(rb["effect"]) == np.sign(main_res["effect"]) and abs(rb["effect"]) > abs(rb["placebo"])
+    out(f"Main estimate: {main_res['post']['me']:+.1f} - ({main_res['pre']['me']:+.1f}) = **{main_res['effect']:+.1f} AQI points**. "
+        f"Robustness check: {rb['post']['me']:+.1f} - ({rb['pre']['me']:+.1f}) = **{rb['effect']:+.1f} AQI points**. "
+        + ("Both models point the same way and both 2020 effects are much larger than their 2019 placebo, so the "
+           "conclusion does not depend on which model is used; the exact size does." if agree else
+           "The two models do not agree well, so the size of the effect depends on the model and should be quoted with care."))
     out()
     out("**How to read this, in plain language:**")
     out()
     yearly = daily[daily.index.year <= 2019].groupby(daily.index.year[daily.index.year <= 2019]).mean()
     out(f"- The raw post-lockdown gap overstates the lockdown effect. Delhi's air was already getting cleaner "
         f"year on year (mean daily AQI {yearly[2015]:.0f} in 2015, {yearly[2019]:.0f} in 2019), and early 2020 was already "
-        "cleaner than the model expected before any lockdown. Subtracting the pre-lockdown error removes that "
+        "cleaner than the models expected before any lockdown. Subtracting the pre-lockdown error removes that "
         "\"already improving\" part, so what remains is the extra drop that lines up in time with the lockdown.")
-    steps = pd.Series(np.arange(1, h2 + 1), index=lock.index)
+    out("- The placebo shows how big the same post-minus-pre number is in a normal year. If the 2020 number were "
+        "similar to the placebo, there would be nothing unusual to explain.")
     out(f"- The pre-lockdown weeks are {steps[pre_mask].min()} to {steps[pre_mask].max()} weeks ahead of the forecast "
         f"origin, while the post-lockdown weeks are {steps[post_mask].min()} to {steps[post_mask].max()} weeks ahead. "
-        + ("For the seasonal naive model this matters less, because each forecast is just the same week of the year "
-           "before and does not get less reliable further out; it does mean the comparison relies on 2019 being a "
-           "typical year." if lock_model == "Seasonal naive" else
-           "Forecast errors usually grow with distance, so the adjustment is not perfect."))
+        "The seasonal naive forecast does not get less reliable further out (it is just last year's value), but "
+        "Holt-Winters errors can grow with distance, so for it the adjustment is less clean.")
     out("- **This is an association, not proof of cause.** Weather (rain, wind, temperature) also changes from year "
-        "to year and affects AQI, and this model has no weather data. The estimate says how much cleaner the air "
+        "to year and affects AQI, and these models have no weather data. The estimate says how much cleaner the air "
         "was than expected after 25 March; it cannot prove the lockdown alone caused all of it.")
     out()
     out("Figure: `phase4_lockdown_case_study.png`.")
     out()
 
     text = "\n".join(lines) + "\n"
-    assert "—" not in text and "–" not in text, "report contains an em or en dash"
+    assert "\u2014" not in text and "\u2013" not in text, "report contains an em or en dash"
     REPORT_PATH.write_text(text)
 
     # Metrics tables for reports/results.md. Each phase owns one marked
     # section so reruns replace it instead of appending duplicates.
     section = ["<!-- phase4:start -->", "## Phase 4: Forecasting weekly mean AQI (test = 52 weeks of 2019)", ""]
     section += table
-    section += ["", f"Lockdown case study ({labels.get(lock_model, lock_model)}, refit on 2015-2019):", "",
-                "| Period | Weeks | Mean error (actual - forecast) | MAE |", "|---|---|---|---|",
-                f"| Pre-lockdown | {pre['n']} | {pre['me']:+.1f} | {pre['mae']:.1f} |",
-                f"| Post-lockdown | {post['n']} | {post['me']:+.1f} | {post['mae']:.1f} |",
-                "", f"Estimated lockdown effect (post minus pre mean error): {effect:+.1f} AQI points.",
-                "<!-- phase4:end -->"]
+    section += ["", "Lockdown case study. Sign convention: error = actual minus forecast (negative = cleaner than expected).", "",
+                "| Model | Period | Weeks | Mean error (actual - forecast) | MAE |", "|---|---|---|---|---|"]
+    for m in lock_models:
+        r = lock_results[m]
+        for name, st in [("Pre-lockdown", r["pre"]), ("Post-lockdown", r["post"])]:
+            section.append(f"| {labels.get(m, m)} | {name} | {st['n']} | {st['me']:+.1f} | {st['mae']:.1f} |")
+    section += ["", "| Model | Role | 2020 effect (post minus pre mean error) | 2019 placebo |", "|---|---|---|---|"]
+    for m in lock_models:
+        r = lock_results[m]
+        section.append(f"| {labels.get(m, m)} | {'main' if m == lock_main else 'robustness check'} | "
+                       f"{r['effect']:+.1f} | {r['placebo']:+.1f} |")
+    section += ["<!-- phase4:end -->"]
     block = "\n".join(section)
     existing = RESULTS_PATH.read_text() if RESULTS_PATH.exists() else "# Results\n\nAll numbers are produced by the scripts in `src/`.\n"
     if "<!-- phase4:start -->" in existing:

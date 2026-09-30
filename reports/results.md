@@ -12,12 +12,17 @@ All numbers are produced by the scripts in `src/`.
 | Holt-Winters (seasonal only) | 94.7 | 81.1 | 61.8 | 46.1 |
 | SARIMA(0, 1, 1)x(1, 1, 1, 52) | 97.6 | 81.2 | 64.2 | 49.8 |
 
-Lockdown case study (Seasonal naive, refit on 2015-2019):
+Lockdown case study. Sign convention: error = actual minus forecast (negative = cleaner than expected).
 
-| Period | Weeks | Mean error (actual - forecast) | MAE |
+| Model | Period | Weeks | Mean error (actual - forecast) | MAE |
+|---|---|---|---|---|
+| Seasonal naive | Pre-lockdown | 12 | -26.6 | 48.3 |
+| Seasonal naive | Post-lockdown | 13 | -90.6 | 94.0 |
+| Holt-Winters (seasonal only) | Pre-lockdown | 12 | -17.7 | 32.4 |
+| Holt-Winters (seasonal only) | Post-lockdown | 13 | -93.1 | 93.1 |
+
+| Model | Role | 2020 effect (post minus pre mean error) | 2019 placebo |
 |---|---|---|---|
-| Pre-lockdown | 12 | -26.6 | 48.3 |
-| Post-lockdown | 13 | -90.6 | 94.0 |
-
-Estimated lockdown effect (post minus pre mean error): -64.0 AQI points.
+| Seasonal naive | main | -64.0 | -6.0 |
+| Holt-Winters (seasonal only) | robustness check | -75.4 | -10.4 |
 <!-- phase4:end -->

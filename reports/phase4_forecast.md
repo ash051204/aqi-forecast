@@ -46,7 +46,7 @@ Figure: `phase4_acf_pacf.png`.
 
 ## 4. SARIMA grid search (d = 1, D = 1, season = 52)
 
-Grid: p in [0, 1, 2], q in [0, 1, 2], P in [0, 1], Q in [0, 1], giving 36 models. Fitted on the 208 training weeks, ranked by AIC. Total grid time: 49.6 s.
+Grid: p in [0, 1, 2], q in [0, 1, 2], P in [0, 1], Q in [0, 1], giving 36 models. Fitted on the 208 training weeks, ranked by AIC. Total grid time: 49.5 s.
 Models that failed to converge (excluded): 5.
 
 Top 10 by AIC:
@@ -54,7 +54,7 @@ Top 10 by AIC:
 | Rank | (p,d,q) | (P,D,Q,s) | AIC | Converged | Fit time (s) |
 |---|---|---|---|---|---|
 | 1 | (0, 1, 1) | (1, 1, 1, 52) | 1702.9 | yes | 1.5 |
-| 2 | (0, 1, 2) | (1, 1, 1, 52) | 1704.8 | yes | 1.7 |
+| 2 | (0, 1, 2) | (1, 1, 1, 52) | 1704.8 | yes | 1.6 |
 | 3 | (1, 1, 1) | (1, 1, 1, 52) | 1704.8 | yes | 1.6 |
 | 4 | (2, 1, 1) | (1, 1, 1, 52) | 1705.3 | yes | 3.6 |
 | 5 | (2, 1, 0) | (1, 1, 1, 52) | 1705.3 | yes | 1.5 |
@@ -74,6 +74,9 @@ Estimated coefficients:
 | ar.S.L52 | -0.3477 | 0.1833 | 0.0578 |
 | ma.S.L52 | -0.6850 | 0.6387 | 0.2835 |
 | sigma2 | 2259.4366 | 979.1547 | 0.0210 |
+
+**Over-differencing check:** the MA(1) coefficient of the chosen model is -0.6279. A value close to -1 (below -0.9) would suggest the first difference is not needed.
+It is not below -0.9, so there is no sign of over-differencing and d = 1 is kept. (For reference, the seasonal MA coefficient is -0.6850, also not close to -1.)
 
 ## 5. Model comparison on the 52 test weeks of 2019
 
@@ -107,28 +110,36 @@ Figure: `phase4_sarima_residuals.png`.
 
 ## 7. Lockdown case study (January to June 2020)
 
-Model: **Seasonal naive**, the best full-year model on 2019 (lowest full-year RMSE). This model has no parameters to estimate, so "refitting" on 2015-2019 simply means the forecast is built from the data up to the end of 2019: each 2020 week gets the value of the same week of 2019 (52 weeks earlier). Forecast: 26 weeks ending 2020-01-05 to 2020-06-28.
+Main model: **Seasonal naive**, the best full-year model on 2019 (lowest full-year RMSE). It has no parameters, so it needs no refitting: each 2020 week is forecast as the same week of 2019 (52 weeks earlier). Robustness check: **Holt-Winters (seasonal only)**, refit on all 260 weeks ending 2015-2019 (same variant, parameters re-estimated, 0.06 s). Both forecast 26 weeks ending 2020-01-05 to 2020-06-28.
 
 - Pre-lockdown weeks: ending 2020-01-05 to 2020-03-22 (12 weeks; the first one includes 30 and 31 December 2019).
 - Post-lockdown weeks: ending 2020-04-05 to 2020-06-28 (13 weeks).
 - Left out: week ending 2020-03-29 (23 to 29 March), which mixes 2 days before and 5 days after the start of the lockdown.
 
-Error = actual minus forecast. Negative means the air was cleaner than the model expected.
+**Sign convention: error = actual minus forecast.** A negative error means the air was cleaner (lower AQI) than the model expected; a positive error means it was dirtier.
 
-| Period | Weeks | Mean actual | Mean forecast | Mean error | MAE | RMSE | Mean % error |
-|---|---|---|---|---|---|---|---|
-| Pre-lockdown (1 Jan to 22 Mar) | 12 | 256.1 | 282.8 | -26.6 | 48.3 | 55.0 | -7.6% |
-| Post-lockdown (from 30 Mar) | 13 | 127.2 | 217.9 | -90.6 | 94.0 | 105.7 | -38.9% |
+| Model | Period | Weeks | Mean actual | Mean forecast | Mean error (actual - forecast) | MAE | RMSE | Mean % error (actual - forecast) |
+|---|---|---|---|---|---|---|---|---|
+| Seasonal naive | Pre-lockdown | 12 | 256.1 | 282.8 | -26.6 | 48.3 | 55.0 | -7.6% |
+| Seasonal naive | Post-lockdown | 13 | 127.2 | 217.9 | -90.6 | 94.0 | 105.7 | -38.9% |
+| Holt-Winters (seasonal only) | Pre-lockdown | 12 | 256.1 | 273.8 | -17.7 | 32.4 | 36.5 | -7.8% |
+| Holt-Winters (seasonal only) | Post-lockdown | 13 | 127.2 | 220.3 | -93.1 | 93.1 | 104.0 | -39.6% |
 
-**Estimated lockdown effect = post-lockdown mean error minus pre-lockdown mean error = -90.6 - (-26.6) = -64.0 AQI points** (in percentage terms -38.9% - (-7.6%) = -31.3 percentage points).
+Estimated lockdown effect = post-lockdown mean error minus pre-lockdown mean error. The 2019 placebo applies the identical calculation to 2019, a year with no lockdown, using each model fitted on 2015-2018 (pre = weeks ending up to 24 Mar 2019, 12 weeks; post = weeks starting 25 Mar to end of June 2019, 14 weeks).
 
-Context from 2019, a year without a lockdown: the same model, forecasting 2019 from the end of 2018, had a mean error of -11.5 for weeks ending up to 24 Mar 2019 (12 weeks) and -17.4 for weeks starting 25 Mar to the end of June 2019 (14 weeks), a post-minus-pre difference of -6.0. So in a normal year the same calculation gives -6.0, against -64.0 in 2020.
+| Model | 2020 effect (AQI points) | 2020 effect (percentage points) | 2019 placebo (AQI points) | 2020 effect minus placebo |
+|---|---|---|---|---|
+| Seasonal naive | -64.0 | -31.3 | -6.0 | -58.1 |
+| Holt-Winters (seasonal only) | -75.4 | -31.8 | -10.4 | -64.9 |
+
+Main estimate: -90.6 - (-26.6) = **-64.0 AQI points**. Robustness check: -93.1 - (-17.7) = **-75.4 AQI points**. Both models point the same way and both 2020 effects are much larger than their 2019 placebo, so the conclusion does not depend on which model is used; the exact size does.
 
 **How to read this, in plain language:**
 
-- The raw post-lockdown gap overstates the lockdown effect. Delhi's air was already getting cleaner year on year (mean daily AQI 297 in 2015, 232 in 2019), and early 2020 was already cleaner than the model expected before any lockdown. Subtracting the pre-lockdown error removes that "already improving" part, so what remains is the extra drop that lines up in time with the lockdown.
-- The pre-lockdown weeks are 1 to 12 weeks ahead of the forecast origin, while the post-lockdown weeks are 14 to 26 weeks ahead. For the seasonal naive model this matters less, because each forecast is just the same week of the year before and does not get less reliable further out; it does mean the comparison relies on 2019 being a typical year.
-- **This is an association, not proof of cause.** Weather (rain, wind, temperature) also changes from year to year and affects AQI, and this model has no weather data. The estimate says how much cleaner the air was than expected after 25 March; it cannot prove the lockdown alone caused all of it.
+- The raw post-lockdown gap overstates the lockdown effect. Delhi's air was already getting cleaner year on year (mean daily AQI 297 in 2015, 232 in 2019), and early 2020 was already cleaner than the models expected before any lockdown. Subtracting the pre-lockdown error removes that "already improving" part, so what remains is the extra drop that lines up in time with the lockdown.
+- The placebo shows how big the same post-minus-pre number is in a normal year. If the 2020 number were similar to the placebo, there would be nothing unusual to explain.
+- The pre-lockdown weeks are 1 to 12 weeks ahead of the forecast origin, while the post-lockdown weeks are 14 to 26 weeks ahead. The seasonal naive forecast does not get less reliable further out (it is just last year's value), but Holt-Winters errors can grow with distance, so for it the adjustment is less clean.
+- **This is an association, not proof of cause.** Weather (rain, wind, temperature) also changes from year to year and affects AQI, and these models have no weather data. The estimate says how much cleaner the air was than expected after 25 March; it cannot prove the lockdown alone caused all of it.
 
 Figure: `phase4_lockdown_case_study.png`.
 
