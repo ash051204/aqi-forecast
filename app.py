@@ -197,8 +197,8 @@ def page_forecast() -> None:
         f"Over the test weeks the actual weekly AQI averaged {fmt(actual_mean)}. "
         f"{labels['Holt-Winters']} and {labels['SARIMA']} forecast an average of {fmt(means['Holt-Winters'])} and "
         f"{fmt(means['SARIMA'])}"
-        + (": both expected dirtier air than there was, because they learnt their level from all the training "
-           "years, including the earlier, more polluted ones. " if fitted_over else ". ")
+        + (": both expected dirtier air than there was, because they estimate their yearly pattern from all the "
+           "training years, including the earlier, more polluted ones. " if fitted_over else ". ")
         + f"Seasonal naive only copies the same week of the last training year (average {fmt(means['Seasonal naive'])}), "
         "so it starts from the most recent level instead of a long-run one. With a whole year to forecast and no "
         f"new data, that matters more than modelling skill. In the rolling test the models see last week's real "

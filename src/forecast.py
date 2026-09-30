@@ -442,6 +442,8 @@ def main() -> None:
     best_full = metrics.loc[metrics["full_rmse"].idxmin(), "Model"]
     best_roll = metrics.loc[metrics["roll_rmse"].idxmin(), "Model"]
     out(f"Lowest full-year RMSE: **{labels.get(best_full, best_full)}**. Lowest rolling RMSE: **{labels.get(best_roll, best_roll)}**.")
+    out("Average over the 52 test weeks (full-year forecasts): actual "
+        f"{full['Actual'].mean():.1f}; " + "; ".join(f"{labels.get(m, m)} {full[m].mean():.1f}" for m in MODEL_NAMES) + ".")
     out("The seasonal naive scores are identical at both horizons by construction: its forecast for any 2019 week is "
         "the value 52 weeks earlier, which is always a 2018 week already known at the end of 2018, so knowing the "
         "2019 weeks in between changes nothing.")
@@ -706,7 +708,8 @@ def main() -> None:
         lockdown_pre_weeks=[str(hold.index[pre_mask].min().date()), str(hold.index[pre_mask].max().date())],
         lockdown_post_weeks=[str(hold.index[post_mask].min().date()), str(hold.index[post_mask].max().date())],
         lockdown_excluded_weeks=[str(d.date()) for d in straddle],
-        lockdown_results={m: plain({k: v for k, v in r.items()}) for m, r in lock_results.items()},
+        # Fit times are left out so this file is identical on every run.
+        lockdown_results={m: plain({k: v for k, v in r.items() if k != "secs"}) for m, r in lock_results.items()},
     )
     (OUT_DIR / "phase4_summary.json").write_text(json.dumps(summary, indent=2))
     print(f"\nSaved {REPORT_PATH.relative_to(ROOT)} and {RESULTS_PATH.relative_to(ROOT)}")
