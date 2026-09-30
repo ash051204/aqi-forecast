@@ -1,0 +1,7 @@
+.venv/
+data/*
+!data/SOURCE.md
+kaggle.json
+**/kaggle.json
+__pycache__/
+.DS_Store
