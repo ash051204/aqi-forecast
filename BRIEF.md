@@ -57,12 +57,16 @@ PHASE 4: FORECASTING (time series)
 PHASE 5: CLASSIFICATION (will tomorrow be a bad air day?)
 - Target: 1 if NEXT day's AQI > 300 (Very Poor or Severe), else 0.
 - Features using ONLY information available today: today's pollutant levels, AQI lags (1, 2, 7 days), 7-day rolling mean AQI, month encoded as sin/cos, day of week. Explicitly check there is no leakage from future values.
-- Split BY TIME: train = 2015-2018, test = 2019. Fit imputation and scaling on train only (use a sklearn Pipeline).
-- Models: baseline (tomorrow's class = today's class), logistic regression (class_weight="balanced"), LDA, QDA.
+- Split BY TIME: train = 2015-2018, test = 2019. Drop the 2018-12-31 training row (its label is from 2019). Fit imputation and scaling on train only (use a sklearn Pipeline).
+- Models: baseline (tomorrow's class = today's class), logistic regression (class_weight="balanced"), LDA, QDA. If QDA fails or warns because of near-singular covariance, use a small reg_param and report the value and why.
 - Tune logistic regression C with GridSearchCV using TimeSeriesSplit (not random k-fold), scoring F1.
+- Keep the decision threshold at 0.5. If other thresholds are tested, choose only via TimeSeriesSplit CV on 2015-2018, never on 2019.
 - Report precision, recall, F1, AUC-ROC for all models in one table, plus confusion matrices and a combined ROC curve plot.
-- Show the logistic regression coefficients and explain in plain words which features push the prediction up or down.
-- Check class balance and comment on it. Stop and report.
+- Change-day evaluation: identify 2019 days where tomorrow's status differs from today's, and report how many each model got right on those days only. The persistence baseline is wrong on every change day by definition.
+- Show the logistic regression coefficients and explain in plain words which features push the prediction up or down. Explain PM2.5 and PM10 together (correlated, so individual coefficients are unstable; the L2 penalty helps).
+- Check class balance and comment on it, including the distribution shift (training 43.7% bad days vs 26.0% in 2019) as a reason precision may drop on 2019.
+- Save the final fitted pipeline with joblib for Phase 6.
+- Stop and report.
 
 PHASE 6: STREAMLIT APP (app.py)
 - Page 1: overview (AQI trend chart and key EDA findings).

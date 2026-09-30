@@ -1,0 +1,5 @@
+Model,all,bad,good
+Baseline (persistence),0,0,0
+Logistic regression,13,5,8
+LDA,15,9,6
+QDA,16,7,9

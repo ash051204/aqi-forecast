@@ -26,3 +26,25 @@ Lockdown case study. Sign convention: error = actual minus forecast (negative = 
 | Seasonal naive | main | -64.0 | -6.0 |
 | Holt-Winters (seasonal only) | robustness check | -75.4 | -10.4 |
 <!-- phase4:end -->
+
+<!-- phase5:start -->
+## Phase 5: Tomorrow's bad air day (AQI > 300), test = 2019 (365 days)
+
+| Model | Precision | Recall | F1 | AUC-ROC | Accuracy (context only) |
+|---|---|---|---|---|---|
+| Baseline (persistence) | 0.821 | 0.821 | 0.821 | 0.879 | 0.907 |
+| Logistic regression | 0.889 | 0.842 | 0.865 | 0.978 | 0.932 |
+| LDA | 0.865 | 0.874 | 0.869 | 0.974 | 0.932 |
+| QDA | 0.848 | 0.821 | 0.834 | 0.964 | 0.915 |
+
+Change days in 2019: 34 (17 turn bad, 17 turn better).
+
+| Model | Correct on change days | Turns bad | Turns better |
+|---|---|---|---|
+| Baseline (persistence) | 0 of 34 | 0 of 17 | 0 of 17 |
+| Logistic regression | 13 of 34 | 5 of 17 | 8 of 17 |
+| LDA | 15 of 34 | 9 of 17 | 6 of 17 |
+| QDA | 16 of 34 | 7 of 17 | 9 of 17 |
+
+Logistic regression C = 0.1; QDA reg_param = 0.0.
+<!-- phase5:end -->
