@@ -515,7 +515,7 @@ def main() -> None:
     out()
 
     text = "\n".join(lines) + "\n"
-    assert "—" not in text and "–" not in text, "report contains an em or en dash"
+    assert "\u2014" not in text and "\u2013" not in text, "report contains an em or en dash"
     REPORT_PATH.write_text(text)
 
     section = ["<!-- phase5:start -->", f"## Phase 5: Tomorrow's bad air day (AQI > {THRESHOLD_AQI}), test = 2019 ({len(y_test)} days)", ""]

@@ -98,8 +98,8 @@ On 2019-01-01 the model gave 99.9%. Changing only "AQI today" from 475 to 50 in 
 **How does the lockdown placebo work?**
 We compare how wrong the forecast was before and after 25 March 2020. Error is actual minus forecast. With seasonal naive the mean error was -26.6 before and -90.6 after, so the lockdown effect estimate is -90.6 - (-26.6) = -64.0 AQI points. Subtracting the pre-lockdown error removes the part of the gap that comes from air already improving year on year.
 
-The placebo runs the identical calculation on 2019, a year with no lockdown, and gets -6.0. So in a normal year this number is small, and -64.0 is about 10.7 times bigger.
+The placebo runs the identical calculation on 2019, a year with no lockdown, and gets -6.0. So in a normal year this number is small: -64.0 in 2020 against -6.0 in 2019.
 
-The robustness check with Holt-Winters gives -75.4 against a placebo of -10.4 (about 7.2 times). Both models agree on the direction; the size depends on the model.
+The robustness check with Holt-Winters gives -75.4 against a placebo of -10.4. Ratios against a placebo this close to zero are unstable (a small change in the placebo would swing them a lot), so compare the absolute gap between effect and placebo instead. Both models agree on the direction; the size depends on the model.
 
 It is still an association, not proof of cause, because weather also changes between years and is not in the data.

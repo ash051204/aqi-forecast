@@ -36,9 +36,9 @@ Figure: `phase4_acf_pacf.png`.
 
 | Variant | AIC (train) | Optimiser converged | Full-year RMSE | Full-year MAE | Rolling RMSE | Rolling MAE | Fit time (s) |
 |---|---|---|---|---|---|---|---|
-| HW seasonal only | 1644.4 | yes | 94.7 | 81.1 | 61.8 | 46.1 | 0.05 |
-| HW additive trend | 1648.3 | no (warning) | 103.4 | 89.6 | 61.9 | 46.2 | 0.10 |
-| HW damped additive trend | 1648.5 | no (warning) | 90.1 | 76.3 | 61.4 | 45.6 | 0.10 |
+| HW seasonal only | 1644.4 | yes | 94.7 | 81.1 | 61.8 | 46.1 | 0.06 |
+| HW additive trend | 1648.3 | no (warning) | 103.4 | 89.6 | 61.9 | 46.2 | 0.11 |
+| HW damped additive trend | 1648.5 | no (warning) | 90.1 | 76.3 | 61.4 | 45.6 | 0.11 |
 
 - Chosen for the main table: **HW seasonal only** (lowest AIC on the training weeks). The choice is made on training data so the 2019 test weeks stay unseen.
 - On the 2019 test weeks the lowest full-year RMSE is HW damped additive trend and the lowest rolling RMSE is HW damped additive trend. AIC and test performance do not fully agree; this is reported, not used to change the choice.
@@ -46,7 +46,7 @@ Figure: `phase4_acf_pacf.png`.
 
 ## 4. SARIMA grid search (d = 1, D = 1, season = 52)
 
-Grid: p in [0, 1, 2], q in [0, 1, 2], P in [0, 1], Q in [0, 1], giving 36 models. Fitted on the 208 training weeks, ranked by AIC. Total grid time: 50.4 s.
+Grid: p in [0, 1, 2], q in [0, 1, 2], P in [0, 1], Q in [0, 1], giving 36 models. Fitted on the 208 training weeks, ranked by AIC. Total grid time: 49.9 s.
 Models that failed to converge (excluded): 5.
 
 Top 10 by AIC:
@@ -54,15 +54,15 @@ Top 10 by AIC:
 | Rank | (p,d,q) | (P,D,Q,s) | AIC | Converged | Fit time (s) |
 |---|---|---|---|---|---|
 | 1 | (0, 1, 1) | (1, 1, 1, 52) | 1702.9 | yes | 1.5 |
-| 2 | (0, 1, 2) | (1, 1, 1, 52) | 1704.8 | yes | 1.7 |
+| 2 | (0, 1, 2) | (1, 1, 1, 52) | 1704.8 | yes | 1.6 |
 | 3 | (1, 1, 1) | (1, 1, 1, 52) | 1704.8 | yes | 1.6 |
-| 4 | (2, 1, 1) | (1, 1, 1, 52) | 1705.3 | yes | 3.6 |
+| 4 | (2, 1, 1) | (1, 1, 1, 52) | 1705.3 | yes | 3.7 |
 | 5 | (2, 1, 0) | (1, 1, 1, 52) | 1705.3 | yes | 1.6 |
-| 6 | (1, 1, 2) | (1, 1, 1, 52) | 1706.4 | no | 3.9 |
-| 7 | (2, 1, 2) | (1, 1, 1, 52) | 1707.1 | no | 3.9 |
+| 6 | (1, 1, 2) | (1, 1, 1, 52) | 1706.4 | no | 3.8 |
+| 7 | (2, 1, 2) | (1, 1, 1, 52) | 1707.1 | no | 4.0 |
 | 8 | (0, 1, 1) | (1, 1, 0, 52) | 1707.6 | yes | 0.6 |
 | 9 | (0, 1, 1) | (0, 1, 1, 52) | 1708.5 | yes | 1.0 |
-| 10 | (2, 1, 0) | (1, 1, 0, 52) | 1709.3 | yes | 0.8 |
+| 10 | (2, 1, 0) | (1, 1, 0, 52) | 1709.3 | yes | 0.7 |
 
 **Chosen: SARIMA(0, 1, 1)x(1, 1, 1, 52), AIC = 1702.9.** Refit time for the chosen model: 1.5 s.
 
@@ -111,7 +111,7 @@ Figure: `phase4_sarima_residuals.png`.
 
 ## 7. Lockdown case study (January to June 2020)
 
-Main model: **Seasonal naive**, the best full-year model on 2019 (lowest full-year RMSE). It has no parameters, so it needs no refitting: each 2020 week is forecast as the same week of 2019 (52 weeks earlier). Robustness check: **Holt-Winters (seasonal only)**, refit on all 260 weeks ending 2015-2019 (same variant, parameters re-estimated, 0.05 s). Both forecast 26 weeks ending 2020-01-05 to 2020-06-28.
+Main model: **Seasonal naive**, the best full-year model on 2019 (lowest full-year RMSE). It has no parameters, so it needs no refitting: each 2020 week is forecast as the same week of 2019 (52 weeks earlier). Robustness check: **Holt-Winters (seasonal only)**, refit on all 260 weeks ending 2015-2019 (same variant, parameters re-estimated, 0.06 s). Both forecast 26 weeks ending 2020-01-05 to 2020-06-28.
 
 - Pre-lockdown weeks: ending 2020-01-05 to 2020-03-22 (12 weeks; the first one includes 30 and 31 December 2019).
 - Post-lockdown weeks: ending 2020-04-05 to 2020-06-28 (13 weeks).

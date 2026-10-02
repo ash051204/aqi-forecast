@@ -40,7 +40,7 @@ for page in ["Overview", "Forecast", "Tomorrow's risk", "Lockdown case study"]:
     at.sidebar.radio(key="page").set_value(page).run()
     check(f"page '{page}' loads", not at.exception, str([e.value for e in at.exception])[:300])
     text = all_text(at)
-    check(f"page '{page}' has no em or en dashes", "—" not in text and "–" not in text)
+    check(f"page '{page}' has no em or en dashes", "\u2014" not in text and "\u2013" not in text)
 
 # Forecast page: rolling horizon also renders.
 at = new_app()
@@ -107,7 +107,7 @@ check("custom input: editing AQI today and pressing Predict changes the probabil
 
 # The app source contains no em or en dashes.
 src = Path(APP).read_text()
-check("app.py has no em or en dashes", "—" not in src and "–" not in src)
+check("app.py has no em or en dashes", "\u2014" not in src and "\u2013" not in src)
 
 print(f"\n{sum(results)} of {len(results)} checks passed")
 sys.exit(0 if all(results) else 1)

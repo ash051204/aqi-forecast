@@ -5,7 +5,7 @@ Steps:
      kagglehub (dataset version 12, the one recorded in data/SOURCE.md) and
      check its SHA-256 hash, so we know it is the exact same file.
   1-5. Run each phase script: audit, clean, eda, forecast, classify.
-  6. Run the app tests.
+  6. Run the app tests and the em/en dash check over all committed text files.
 
 Stops at the first failure.
 
@@ -33,6 +33,7 @@ STEPS = [
     ("Phase 4: forecasting", ["src/forecast.py"]),
     ("Phase 5: classification", ["src/classify.py"]),
     ("App tests", ["tests/test_app.py"]),
+    ("Dash check", ["tests/test_no_dashes.py"]),
 ]
 
 
@@ -72,7 +73,7 @@ def main() -> None:
             print(result.stderr[-3000:])
             sys.exit(f"STOP: {name} failed (exit code {result.returncode}).")
         print(f"{name}: OK in {time.perf_counter() - t0:.1f} s")
-        if name == "App tests":
+        if args[0].startswith("tests/"):
             print(result.stdout.strip().splitlines()[-1])
     print("\nAll steps finished.")
 

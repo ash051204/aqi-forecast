@@ -46,7 +46,7 @@ The dataset is public, so no Kaggle login was needed when this was built. If kag
 .venv/bin/python run_all.py
 ```
 
-This runs every phase in order from the raw CSV (audit, clean, EDA, forecast, classify), then the app tests, and stops at the first failure. It takes about a minute; most of that is the SARIMA grid search.
+This runs every phase in order from the raw CSV (audit, clean, EDA, forecast, classify), then the app tests and the dash check, and stops at the first failure. It takes about a minute; most of that is the SARIMA grid search.
 
 ## Launch the app
 
@@ -60,6 +60,7 @@ The app has four pages: Overview, Forecast, Tomorrow's risk and Lockdown case st
 
 ```bash
 .venv/bin/python tests/test_app.py
+.venv/bin/python tests/test_no_dashes.py
 ```
 
 These are 24 checks that use Streamlit's AppTest:
@@ -67,6 +68,8 @@ These are 24 checks that use Streamlit's AppTest:
 - replaying a normal day and a change day shows the saved probability;
 - the change-day jump works;
 - the custom input works.
+
+`tests/test_no_dashes.py` scans every committed text file (README, BRIEF, data/SOURCE.md, the reports, code and outputs) for em and en dashes, which the design rules forbid.
 
 ## Project structure
 
@@ -81,6 +84,7 @@ src/forecast.py      Phase 4: weekly forecasting and lockdown case study
 src/classify.py      Phase 5: next-day bad-air-day classification
 app.py               Phase 6: Streamlit app
 tests/test_app.py    app tests
+tests/test_no_dashes.py  em/en dash check over all committed text files
 run_all.py           runs everything in order
 models/              saved logistic regression pipeline and its metadata
 reports/             per-phase reports, results.md, viva_notes.md, figures/, outputs/
@@ -147,7 +151,7 @@ The SARIMA residuals pass the Ljung-Box test at lags 10, 20 and 52 (p = 0.49, 0.
 | Seasonal naive | main | -26.6 | -90.6 | **-64.0** | -6.0 |
 | Holt-Winters (seasonal only) | robustness check | -17.7 | -93.1 | **-75.4** | -10.4 |
 
-The raw post-lockdown gap overstates the effect, because early 2020 was already cleaner than the forecast before the lockdown. Subtracting the pre-lockdown error removes that. The 2020 effect is about 10.7 times the 2019 placebo for seasonal naive and 7.2 times for Holt-Winters. 2019 had no lockdown, so the placebo shows how big this number is in a normal year. Both models point the same way; the exact size depends on the model.
+The raw post-lockdown gap overstates the effect, because early 2020 was already cleaner than the forecast before the lockdown. Subtracting the pre-lockdown error removes that. Side by side, the 2020 effect against the 2019 placebo is -64.0 vs -6.0 for seasonal naive and -75.4 vs -10.4 for Holt-Winters. 2019 had no lockdown, so the placebo shows how big this number is in a normal year. A ratio against a placebo this close to zero is unstable (a small change in the placebo would swing it a lot), so the absolute gap between effect and placebo is the fairer comparison. Both models point the same way; the exact size depends on the model.
 
 ### Tomorrow's bad air day, 365 test days of 2019 (threshold 0.5)
 
