@@ -2,6 +2,8 @@
 
 Mini project for Predictive Analytics (CSE3141), Manipal University Jaipur.
 
+**Live demo:** LIVE_DEMO_URL (to be added after deploying on Streamlit Community Cloud)
+
 **Problem.** Delhi has some of the worst air in the world, and it follows a strong seasonal pattern. This project asks two questions using real daily data from 2015 to mid-2020:
 
 1. **Forecasting:** how well can simple time series models forecast Delhi's weekly average AQI a year ahead, and one week ahead?
